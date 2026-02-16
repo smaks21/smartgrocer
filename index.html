@@ -20,6 +20,10 @@
         .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-in { animation: fadeIn 0.2s ease-out forwards; }
+        
+        /* Drag and Drop Styles */
+        .dragging { opacity: 0.5; background: #eef2ff; }
+        .drag-over { border-top: 2px solid #6366f1; }
     </style>
 </head>
 <body class="bg-[#f8fafc]">
@@ -49,7 +53,7 @@
                     </React.Fragment>
                 ),
                 LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />,
-                Move: <path d="M9 5h6M9 12h6M9 19h6" />
+                GripVertical: <path d="M9 5h.01M9 12h.01M9 19h.01M15 5h.01M15 12h.01M15 19h.01" />
             };
 
             return (
@@ -95,6 +99,7 @@
             
             const [editingCategory, setEditingCategory] = useState(null);
             const [showQuickAdd, setShowQuickAdd] = useState(false);
+            const [draggedItemId, setDraggedItemId] = useState(null);
 
             const inputRefs = useRef({});
 
@@ -126,7 +131,6 @@
                 const typedPass = credentials.password.trim();
 
                 try {
-                    // Fetch credentials from the JSON file
                     const response = await fetch('credentials.json');
                     if (!response.ok) throw new Error('Could not load credentials');
                     
@@ -141,14 +145,12 @@
                         setLoginError('Invalid username or password');
                     }
                 } catch (err) {
-                    // Fallback for demo purposes if file is missing
                     if (typedUser === 'admin' && typedPass === 'password123') {
                         const u = { username: 'admin', displayName: 'Administrator' };
                         setUser(u);
                         localStorage.setItem('sg-user-session', JSON.stringify(u));
                     } else {
                         setLoginError('Login service unavailable. Please try again later.');
-                        console.error(err);
                     }
                 } finally {
                     setIsLoggingIn(false);
@@ -192,21 +194,62 @@
                 setItems(items.filter(i => !i.completed));
             };
 
-            const moveItem = (id, direction) => {
-                const index = items.findIndex(i => i.id === id);
-                if (index === -1) return;
-                
-                const newIndex = index + direction;
-                if (newIndex < 0 || newIndex >= items.length) return;
-                
-                const newItems = [...items];
-                const [moved] = newItems.splice(index, 1);
-                newItems.splice(newIndex, 0, moved);
-                setItems(newItems);
+            // Drag and Drop Handlers
+            const onDragStart = (e, id) => {
+                setDraggedItemId(id);
+                e.dataTransfer.setData("itemId", id);
+                e.currentTarget.classList.add("dragging");
             };
 
-            const moveItemToCategory = (id, newCategoryId) => {
-                setItems(items.map(i => i.id === id ? { ...i, category: newCategoryId } : i));
+            const onDragEnd = (e) => {
+                e.currentTarget.classList.remove("dragging");
+                setDraggedItemId(null);
+                // Clean up any remaining drop indicators
+                document.querySelectorAll('.drag-over').forEach(el => el.classList.remove('drag-over'));
+            };
+
+            const onDragOver = (e) => {
+                e.preventDefault();
+            };
+
+            const onDropOnItem = (e, targetId) => {
+                e.preventDefault();
+                const sourceId = parseInt(e.dataTransfer.getData("itemId"));
+                if (sourceId === targetId) return;
+
+                const sourceIndex = items.findIndex(i => i.id === sourceId);
+                const targetIndex = items.findIndex(i => i.id === targetId);
+                
+                const newItems = [...items];
+                const [movedItem] = newItems.splice(sourceIndex, 1);
+                // Inherit the category of the item it was dropped on
+                movedItem.category = items[targetIndex].category;
+                
+                newItems.splice(targetIndex, 0, movedItem);
+                setItems(newItems);
+                e.currentTarget.classList.remove('drag-over');
+            };
+
+            const onDropOnCategory = (e, categoryId) => {
+                e.preventDefault();
+                const sourceId = parseInt(e.dataTransfer.getData("itemId"));
+                
+                // If the drop target is a category and not a specific item, 
+                // move the item to the end of that category
+                const sourceIndex = items.findIndex(i => i.id === sourceId);
+                const newItems = [...items];
+                const [movedItem] = newItems.splice(sourceIndex, 1);
+                movedItem.category = categoryId;
+                
+                // Add to start of that category's items in the global list
+                const firstInCat = newItems.findIndex(i => i.category === categoryId);
+                if (firstInCat === -1) {
+                    newItems.push(movedItem);
+                } else {
+                    newItems.splice(firstInCat, 0, movedItem);
+                }
+                
+                setItems(newItems);
             };
 
             const updateCategory = (id, updates) => setCategories(categories.map(cat => cat.id === id ? { ...cat, ...updates } : cat));
@@ -269,7 +312,6 @@
                                 >
                                     {isLoggingIn ? 'Checking...' : 'Login'}
                                 </button>
-                                <p className="text-[10px] text-center text-slate-400 font-bold mt-4 uppercase tracking-tighter">Enter your credentials to access your list</p>
                             </form>
                         </div>
                     </div>
@@ -286,16 +328,16 @@
                                 </div>
                                 <h1 className="text-lg font-black tracking-tight text-slate-800">SmartGrocer</h1>
                             </div>
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3">
                                 {completedCount > 0 && (
                                     <button 
                                         onClick={clearCompleted}
-                                        className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-600 px-3 py-2 rounded-lg hover:bg-red-100 transition-colors"
+                                        className="text-[10px] font-black uppercase tracking-widest bg-red-50 text-red-600 px-4 py-2.5 rounded-xl hover:bg-red-100 transition-colors flex items-center gap-2"
                                     >
-                                        Clear Ticked ({completedCount})
+                                        <Icon name="Trash2" size={14} /> Clear Ticked ({completedCount})
                                     </button>
                                 )}
-                                <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                <button onClick={handleLogout} className="p-2.5 text-slate-400 hover:text-red-500 transition-colors bg-slate-50 rounded-xl">
                                     <Icon name="LogOut" size={18} />
                                 </button>
                             </div>
@@ -308,7 +350,12 @@
                             const isEditing = editingCategory === category.id;
 
                             return (
-                                <div key={category.id} className="animate-in">
+                                <div 
+                                    key={category.id} 
+                                    className="animate-in"
+                                    onDragOver={onDragOver}
+                                    onDrop={(e) => onDropOnCategory(e, category.id)}
+                                >
                                     <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
                                         <div className={`flex items-center justify-between p-5 border-b transition-all ${category.color}`}>
                                             <div className="flex items-center gap-3 flex-1">
@@ -370,36 +417,27 @@
                                                 </button>
                                             </div>
 
-                                            <div className="space-y-1">
-                                                {categoryItems.map((item, itemIdx) => (
-                                                    <div key={item.id} className={`flex items-center gap-3 p-3 rounded-xl transition-all group ${item.completed ? 'opacity-40' : 'bg-white'}`}>
-                                                        <div className="flex flex-col opacity-0 group-hover:opacity-100 transition-opacity">
-                                                            <button onClick={() => moveItem(item.id, -1)} className="p-0.5 hover:bg-slate-100 rounded"><Icon name="ChevronUp" size={12} /></button>
-                                                            <button onClick={() => moveItem(item.id, 1)} className="p-0.5 hover:bg-slate-100 rounded"><Icon name="ChevronDown" size={12} /></button>
+                                            <div className="space-y-1 min-h-[20px]">
+                                                {categoryItems.map((item) => (
+                                                    <div 
+                                                        key={item.id} 
+                                                        draggable
+                                                        onDragStart={(e) => onDragStart(e, item.id)}
+                                                        onDragEnd={onDragEnd}
+                                                        onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('drag-over'); }}
+                                                        onDragLeave={(e) => e.currentTarget.classList.remove('drag-over')}
+                                                        onDrop={(e) => onDropOnItem(e, item.id)}
+                                                        className={`flex items-center gap-3 p-3 rounded-xl transition-all group ${item.completed ? 'opacity-40' : 'bg-white hover:bg-slate-50'}`}
+                                                    >
+                                                        <div className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-indigo-400">
+                                                            <Icon name="GripVertical" size={18} />
                                                         </div>
                                                         <button onClick={() => toggleItem(item.id)} className={`p-1 ${item.completed ? 'text-indigo-600' : 'text-slate-200'}`}>
                                                             <Icon name={item.completed ? 'CheckSquare' : 'Square'} size={24} />
                                                         </button>
                                                         <span className={`flex-1 text-base font-bold ${item.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-700'}`}>{item.text}</span>
                                                         
-                                                        <div className="flex items-center gap-1">
-                                                            <div className="relative group/popover">
-                                                                <button className="p-2 text-slate-300 hover:text-indigo-500 opacity-0 group-hover:opacity-100">
-                                                                    <Icon name="Move" size={16} />
-                                                                </button>
-                                                                <div className="absolute right-0 bottom-full mb-2 hidden group-hover/popover:flex flex-col bg-white shadow-xl border border-slate-100 rounded-xl overflow-hidden z-40 min-w-[150px]">
-                                                                    <div className="p-2 bg-slate-50 text-[9px] font-black uppercase text-slate-400 border-b">Move to...</div>
-                                                                    {categories.map(c => (
-                                                                        <button 
-                                                                            key={c.id} 
-                                                                            onClick={() => moveItemToCategory(item.id, c.id)}
-                                                                            className="px-4 py-2 text-left text-xs font-bold hover:bg-indigo-50 transition-colors flex items-center gap-2"
-                                                                        >
-                                                                            <span>{c.icon}</span> {c.name}
-                                                                        </button>
-                                                                    ))}
-                                                                </div>
-                                                            </div>
+                                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                                                             <button onClick={() => deleteItem(item.id)} className="p-2 text-slate-300 hover:text-red-500"><Icon name="Trash2" size={18} /></button>
                                                         </div>
                                                     </div>
