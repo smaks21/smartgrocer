@@ -123,9 +123,12 @@
                 setIsLoggingIn(true);
                 setLoginError('');
 
+                const typedUser = credentials.username.trim();
+                const typedPass = credentials.password.trim();
+
                 try {
-                    // 1. Check for demo credentials first for instant access
-                    if (credentials.username === 'admin' && credentials.password === 'password123') {
+                    // 1. Check for demo credentials first
+                    if (typedUser === 'admin' && typedPass === 'password123') {
                         const u = { username: 'admin', displayName: 'Administrator' };
                         setUser(u);
                         localStorage.setItem('sg-user-session', JSON.stringify(u));
@@ -133,35 +136,40 @@
                     }
 
                     // 2. Attempt to fetch and validate against credentials.json
-                    const response = await fetch('credentials.json');
-                    if (response.ok) {
-                        const config = await response.json();
-                        const validUser = config.users?.find(u => 
-                            u.username === credentials.username && 
-                            u.password === credentials.password
-                        );
-
-                        if (validUser) {
-                            const u = { 
-                                username: validUser.username, 
-                                displayName: validUser.displayName || validUser.username 
-                            };
-                            setUser(u);
-                            localStorage.setItem('sg-user-session', JSON.stringify(u));
-                            return;
-                        }
-                    }
+                    const response = await fetch('credentials.json', { cache: 'no-store' });
                     
-                    setLoginError('Invalid credentials');
-                } catch (error) {
-                    // Fallback if fetch fails but user is admin
-                    if (credentials.username === 'admin' && credentials.password === 'password123') {
-                        const u = { username: 'admin', displayName: 'Administrator' };
+                    if (!response.ok) {
+                        throw new Error(`Could not load credentials.json (Status: ${response.status})`);
+                    }
+
+                    const config = await response.json();
+                    
+                    if (!config.users || !Array.isArray(config.users)) {
+                        throw new Error("Invalid credentials.json format: Missing 'users' array.");
+                    }
+
+                    const validUser = config.users.find(u => 
+                        u.username === typedUser && 
+                        u.password === typedPass
+                    );
+
+                    if (validUser) {
+                        const u = { 
+                            username: validUser.username, 
+                            displayName: validUser.displayName || validUser.username 
+                        };
                         setUser(u);
                         localStorage.setItem('sg-user-session', JSON.stringify(u));
-                    } else {
-                        setLoginError('Authentication error. Please try again.');
+                        return;
                     }
+                    
+                    setLoginError('Invalid username or password');
+                } catch (error) {
+                    console.error("Login error:", error);
+                    // Detailed error reporting to help the user debug file issues
+                    setLoginError(error.message.includes('fetch') 
+                        ? 'Failed to reach credentials.json. Ensure the file exists in the same folder.' 
+                        : error.message);
                 } finally {
                     setIsLoggingIn(false);
                 }
@@ -247,7 +255,11 @@
                                     onChange={e => setCredentials({...credentials, password: e.target.value})}
                                     disabled={isLoggingIn}
                                 />
-                                {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
+                                {loginError && (
+                                    <div className="bg-red-50 border border-red-100 p-3 rounded-xl">
+                                        <p className="text-red-600 text-[11px] font-bold text-center leading-tight">{loginError}</p>
+                                    </div>
+                                )}
                                 <button 
                                     type="submit"
                                     disabled={isLoggingIn}
