@@ -1,385 +1,441 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Plus, 
-  Trash2, 
-  ShoppingBasket, 
-  Square,
-  CheckSquare,
-  GripVertical,
-  LayoutGrid,
-  X,
-  Palette,
-  Smile,
-  ArrowDownUp,
-  History,
-  Zap,
-  Lock,
-  LogOut
-} from 'lucide-react';
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SmartGrocer - Modern Shopping List</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800;900&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+        .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
+        .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
+        .scrollbar-thin::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        @keyframes fadeIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
+        .animate-in { animation: fadeIn 0.2s ease-out forwards; }
+    </style>
+</head>
+<body class="bg-[#f8fafc]">
+    <div id="root"></div>
 
-const INITIAL_CATEGORIES = [
-  { id: 'fruit-veg', name: 'Fruit & Veg', icon: '🍎', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500' },
-  { id: 'food-cupboard', name: 'Food Cupboard', icon: '🥫', color: 'bg-amber-50 text-amber-700 border-amber-100', dot: 'bg-amber-500' },
-  { id: 'chilled', name: 'Chilled', icon: '🧊', color: 'bg-sky-50 text-sky-700 border-sky-100', dot: 'bg-sky-500' },
-  { id: 'frozen', name: 'Frozen', icon: '❄️', color: 'bg-indigo-50 text-indigo-700 border-indigo-100', dot: 'bg-indigo-500' },
-  { id: 'bakery', name: 'Bakery', icon: '🥐', color: 'bg-orange-50 text-orange-700 border-orange-100', dot: 'bg-orange-500' },
-  { id: 'other', name: 'Other', icon: '📦', color: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500' }
-];
+    <script type="text/babel">
+        const { useState, useEffect, useMemo } = React;
 
-const ICON_OPTIONS = ['🍎', '🥦', '🥫', '🥛', '🧊', '❄️', '🥐', '🥩', '🧼', '📦', '🍫', '🥤', '🐶', '🧴', '🥚', '🍕', '🧹', '🔋', '🍷', '🥖'];
-const COLOR_OPTIONS = [
-  { name: 'Emerald', dot: 'bg-emerald-500', classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
-  { name: 'Amber', dot: 'bg-amber-500', classes: 'bg-amber-50 text-amber-700 border-amber-100' },
-  { name: 'Sky', dot: 'bg-sky-500', classes: 'bg-sky-50 text-sky-700 border-sky-100' },
-  { name: 'Indigo', dot: 'bg-indigo-500', classes: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
-  { name: 'Orange', dot: 'bg-orange-500', classes: 'bg-orange-50 text-orange-700 border-orange-100' },
-  { name: 'Rose', dot: 'bg-rose-500', classes: 'bg-rose-50 text-rose-700 border-rose-100' },
-  { name: 'Violet', dot: 'bg-violet-500', classes: 'bg-violet-50 text-violet-700 border-violet-100' },
-  { name: 'Slate', dot: 'bg-slate-500', classes: 'bg-slate-100 text-slate-700 border-slate-200' },
-];
+        // --- Lucide Icon Fallbacks (Inline SVG) ---
+        const Icon = ({ name, size = 20, className = "" }) => {
+            const icons = {
+                Plus: <path d="M12 5v14M5 12h14" />,
+                Trash2: <path d="M3 6h18M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2M10 11v6M14 11v6" />,
+                ShoppingBasket: <path d="m5 11 4-7M19 11l-4-7M2 11h20M3.5 11l1.6 7.4c.2.9 1 1.6 2 1.6h9.8c1 0 1.8-.7 2-1.6l1.7-7.4M9 11v.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V11M15 11v.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V11" />,
+                CheckSquare: <path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />,
+                Square: <rect width="18" height="18" x="3" y="3" rx="2" />,
+                GripVertical: (
+                    <React.Fragment>
+                        <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
+                        <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
+                    </React.Fragment>
+                ),
+                Zap: <path d="M13 2 L3 14h9l-1 8 10-12h-9l1-8z" />,
+                X: <path d="M18 6 6 18M6 6l12 12" />,
+                ArrowDownUp: <path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />,
+                History: <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M12 7v5l4 2" />,
+                LayoutGrid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
+                Palette: <path d="M12 20.94c1.88 0 3.85-.76 5.23-2.14a8.94 8.94 0 0 0 2.14-5.23c0-3.32-2.31-6.14-5.46-6.8a1.5 1.5 0 0 0-1.81 1.43v.1a1.5 1.5 0 0 1-1.5 1.5H8.1a1.5 1.5 0 0 1-1.5-1.5v-.1a1.5 1.5 0 0 0-1.81-1.43c-3.15.66-5.46 3.48-5.46 6.8a8.94 8.94 0 0 0 2.14 5.23c1.38 1.38 3.35 2.14 5.23 2.14h3.3zM12 21a9 9 0 0 1-9-9c0-4.04 2.8-7.56 6.74-8.5M12 3a9 9 0 0 1 9 9c0 4.04-2.8 7.56-6.74 8.5" />,
+                Lock: (
+                    <React.Fragment>
+                        <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                        <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+                    </React.Fragment>
+                ),
+                LogOut: <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" />
+            };
 
-const App = () => {
-  // Auth State
-  const [user, setUser] = useState(() => {
-    const saved = localStorage.getItem('sg-user-session');
-    return saved ? JSON.parse(saved) : null;
-  });
-  const [credentials, setCredentials] = useState({ username: '', password: '' });
-  const [loginError, setLoginError] = useState('');
+            return (
+                <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
+                    {icons[name] || <circle cx="12" cy="12" r="10" />}
+                </svg>
+            );
+        };
 
-  // Grocery State
-  const [items, setItems] = useState(() => {
-    const saved = localStorage.getItem(`items-${user?.username}`);
-    return saved ? JSON.parse(saved) : [];
-  });
+        const INITIAL_CATEGORIES = [
+            { id: 'fruit-veg', name: 'Fruit & Veg', icon: '🍎', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500' },
+            { id: 'food-cupboard', name: 'Food Cupboard', icon: '🥫', color: 'bg-amber-50 text-amber-700 border-amber-100', dot: 'bg-amber-500' },
+            { id: 'chilled', name: 'Chilled', icon: '🧊', color: 'bg-sky-50 text-sky-700 border-sky-100', dot: 'bg-sky-500' },
+            { id: 'frozen', name: 'Frozen', icon: '❄️', color: 'bg-indigo-50 text-indigo-700 border-indigo-100', dot: 'bg-indigo-500' },
+            { id: 'bakery', name: 'Bakery', icon: '🥐', color: 'bg-orange-50 text-orange-700 border-orange-100', dot: 'bg-orange-500' },
+            { id: 'other', name: 'Other', icon: '📦', color: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500' }
+        ];
 
-  const [categories, setCategories] = useState(() => {
-    const savedCats = localStorage.getItem(`cats-${user?.username}`);
-    return savedCats ? JSON.parse(savedCats) : INITIAL_CATEGORIES;
-  });
+        const ICON_OPTIONS = ['🍎', '🥦', '🥫', '🥛', '🧊', '❄️', '🥐', '🥩', '🧼', '📦', '🍫', '🥤', '🐶', '🧴', '🥚', '🍕', '🧹', '🔋', '🍷', '🥖'];
+        const COLOR_OPTIONS = [
+            { name: 'Emerald', dot: 'bg-emerald-500', classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+            { name: 'Amber', dot: 'bg-amber-500', classes: 'bg-amber-50 text-amber-700 border-amber-100' },
+            { name: 'Sky', dot: 'bg-sky-500', classes: 'bg-sky-50 text-sky-700 border-sky-100' },
+            { name: 'Indigo', dot: 'bg-indigo-500', classes: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+            { name: 'Orange', dot: 'bg-orange-500', classes: 'bg-orange-50 text-orange-700 border-orange-100' },
+            { name: 'Rose', dot: 'bg-rose-500', classes: 'bg-rose-50 text-rose-700 border-rose-100' },
+            { name: 'Violet', dot: 'bg-violet-500', classes: 'bg-violet-50 text-violet-700 border-violet-100' },
+            { name: 'Slate', dot: 'bg-slate-500', classes: 'bg-slate-100 text-slate-700 border-slate-200' },
+        ];
 
-  const [frequencyData, setFrequencyData] = useState(() => {
-    const saved = localStorage.getItem(`freq-${user?.username}`);
-    return saved ? JSON.parse(saved) : {};
-  });
-  
-  const [activeInput, setActiveInput] = useState(null); 
-  const [editingCategory, setEditingCategory] = useState(null);
-  const [editCategoryName, setEditCategoryName] = useState('');
-  const [draggedItem, setDraggedItem] = useState(null);
-  const [draggedColumnIndex, setDraggedColumnIndex] = useState(null);
-  const [showQuickAdd, setShowQuickAdd] = useState(true);
+        const App = () => {
+            const [user, setUser] = useState(() => {
+                const saved = localStorage.getItem('sg-user-session');
+                return saved ? JSON.parse(saved) : null;
+            });
+            const [credentials, setCredentials] = useState({ username: '', password: '' });
+            const [loginError, setLoginError] = useState('');
 
-  // Persistence hooks
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem(`items-${user.username}`, JSON.stringify(items));
-      localStorage.setItem(`cats-${user.username}`, JSON.stringify(categories));
-      localStorage.setItem(`freq-${user.username}`, JSON.stringify(frequencyData));
-    }
-  }, [items, categories, frequencyData, user]);
+            const [items, setItems] = useState([]);
+            const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+            const [frequencyData, setFrequencyData] = useState({});
+            
+            const [editingCategory, setEditingCategory] = useState(null);
+            const [draggedColumnIndex, setDraggedColumnIndex] = useState(null);
+            const [showQuickAdd, setShowQuickAdd] = useState(true);
 
-  // Auth Handler
-  const handleLogin = async (e) => {
-    e.preventDefault();
-    try {
-      const resp = await fetch('credentials.json');
-      const validUsers = await resp.json();
-      const match = validUsers.find(u => u.username === credentials.username && u.password === credentials.password);
-      
-      if (match) {
-        setUser(match);
-        localStorage.setItem('sg-user-session', JSON.stringify(match));
-      } else {
-        setLoginError('Invalid username or password');
-      }
-    } catch (err) {
-      setLoginError('Authentication service unavailable');
-    }
-  };
+            // Load user-specific data on login
+            useEffect(() => {
+                if (user) {
+                    const savedItems = localStorage.getItem(`items-${user.username}`);
+                    const savedCats = localStorage.getItem(`cats-${user.username}`);
+                    const savedFreq = localStorage.getItem(`freq-${user.username}`);
+                    
+                    if (savedItems) setItems(JSON.parse(savedItems));
+                    if (savedCats) setCategories(JSON.parse(savedCats));
+                    if (savedFreq) setFrequencyData(JSON.parse(savedFreq));
+                }
+            }, [user]);
 
-  const handleLogout = () => {
-    setUser(null);
-    localStorage.removeItem('sg-user-session');
-  };
+            // Save user-specific data
+            useEffect(() => {
+                if (user) {
+                    localStorage.setItem(`items-${user.username}`, JSON.stringify(items));
+                    localStorage.setItem(`cats-${user.username}`, JSON.stringify(categories));
+                    localStorage.setItem(`freq-${user.username}`, JSON.stringify(frequencyData));
+                }
+            }, [items, categories, frequencyData, user]);
 
-  const frequentItems = useMemo(() => {
-    return Object.entries(frequencyData)
-      .map(([text, data]) => ({ text, ...data }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 12);
-  }, [frequencyData]);
+            const handleLogin = async (e) => {
+                e.preventDefault();
+                try {
+                    // Fallback local check if file fetch fails
+                    let validUsers = [{ username: 'admin', password: 'password123', displayName: 'Administrator' }];
+                    
+                    try {
+                        const resp = await fetch('credentials.json');
+                        if (resp.ok) validUsers = await resp.json();
+                    } catch (e) { /* ignore and use fallback */ }
 
-  const addItem = (text, categoryId) => {
-    const cleanText = text.trim();
-    if (!cleanText) return;
+                    const match = validUsers.find(u => u.username === credentials.username && u.password === credentials.password);
+                    
+                    if (match) {
+                        setUser(match);
+                        localStorage.setItem('sg-user-session', JSON.stringify(match));
+                    } else {
+                        setLoginError('Invalid username or password');
+                    }
+                } catch (err) {
+                    setLoginError('Authentication service unavailable');
+                }
+            };
 
-    setFrequencyData(prev => {
-      const key = cleanText.toLowerCase();
-      const existing = prev[key] || { count: 0, lastCategory: categoryId };
-      return {
-        ...prev,
-        [key]: {
-          count: existing.count + 1,
-          lastCategory: categoryId,
-          originalText: cleanText
-        }
-      };
-    });
+            const handleLogout = () => {
+                setUser(null);
+                localStorage.removeItem('sg-user-session');
+                setItems([]);
+                setCategories(INITIAL_CATEGORIES);
+            };
 
-    setItems([{ 
-      id: Date.now(), 
-      text: cleanText, 
-      category: categoryId, 
-      completed: false 
-    }, ...items]);
-  };
+            const frequentItems = useMemo(() => {
+                return Object.entries(frequencyData)
+                    .map(([text, data]) => ({ text, ...data }))
+                    .sort((a, b) => b.count - a.count)
+                    .slice(0, 12);
+            }, [frequencyData]);
 
-  const toggleItem = (id) => setItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
-  const deleteItem = (id) => setItems(items.filter(i => i.id !== id));
+            const addItem = (text, categoryId) => {
+                const cleanText = text.trim();
+                if (!cleanText) return;
 
-  const updateCategory = (id, updates) => {
-    setCategories(categories.map(cat => cat.id === id ? { ...cat, ...updates } : cat));
-  };
-
-  const onDragStartColumn = (e, index) => {
-    setDraggedColumnIndex(index);
-    e.dataTransfer.setData('type', 'column');
-    e.dataTransfer.setData('index', index);
-  };
-
-  const onDrop = (e, targetId, targetIndex) => {
-    e.preventDefault();
-    const type = e.dataTransfer.getData('type');
-
-    if (type === 'column' && draggedColumnIndex !== null) {
-      const newCategories = [...categories];
-      const [movedCol] = newCategories.splice(draggedColumnIndex, 1);
-      newCategories.splice(targetIndex, 0, movedCol);
-      setCategories(newCategories);
-    }
-    setDraggedColumnIndex(null);
-  };
-
-  // Login View
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
-        <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-xl border border-slate-100">
-          <div className="flex flex-col items-center mb-8">
-            <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white mb-4 shadow-lg">
-              <Lock size={32} />
-            </div>
-            <h2 className="text-2xl font-black text-slate-800">SmartGrocer</h2>
-            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Sign in to continue</p>
-          </div>
-          <form onSubmit={handleLogin} className="space-y-4">
-            <input 
-              type="text" 
-              placeholder="Username" 
-              className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
-              value={credentials.username}
-              onChange={e => setCredentials({...credentials, username: e.target.value})}
-            />
-            <input 
-              type="password" 
-              placeholder="Password" 
-              className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
-              value={credentials.password}
-              onChange={e => setCredentials({...credentials, password: e.target.value})}
-            />
-            {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
-            <button className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">
-              Login
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-40">
-      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
-        <div className="max-w-3xl mx-auto flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
-              <ShoppingBasket size={20} />
-            </div>
-            <h1 className="text-lg font-black tracking-tight text-slate-800">SmartGrocer</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.displayName}</span>
-            <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
-              <LogOut size={18} />
-            </button>
-          </div>
-        </div>
-      </nav>
-
-      {/* Vertical Column List */}
-      <main className="max-w-3xl mx-auto p-4 space-y-6">
-        {categories.map((category, index) => {
-          const categoryItems = items.filter(item => item.category === category.id).sort((a, b) => a.completed - b.completed);
-          const isEditing = editingCategory === category.id;
-
-          return (
-            <div 
-              key={category.id} 
-              onDragOver={e => e.preventDefault()} 
-              onDrop={e => onDrop(e, category.id, index)} 
-              className={`transition-all duration-300 ${draggedColumnIndex === index ? 'opacity-20' : 'opacity-100'}`}
-            >
-              <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
-                {/* Column Header */}
-                <div className={`flex items-center justify-between p-5 border-b transition-all ${category.color}`}>
-                  <div className="flex items-center gap-3 flex-1">
-                    <div 
-                      draggable 
-                      onDragStart={(e) => onDragStartColumn(e, index)}
-                      className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
-                    >
-                      <GripVertical size={20} />
-                    </div>
-                    <span className="text-xl">{category.icon}</span>
-                    <input 
-                      value={category.name}
-                      onChange={(e) => updateCategory(category.id, { name: e.target.value })}
-                      className="bg-transparent border-none outline-none font-black text-sm w-full focus:ring-1 focus:ring-black/5 rounded px-1"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="bg-white/50 px-2 py-0.5 rounded-lg text-[10px] font-black">
-                      {categoryItems.length}
-                    </span>
-                    <button 
-                      onClick={() => setEditingCategory(isEditing ? null : category.id)}
-                      className="p-1 text-slate-400 hover:text-indigo-600"
-                    >
-                      <Palette size={16} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Theming Inline Options */}
-                {isEditing && (
-                  <div className="p-4 bg-slate-50 border-b space-y-4 animate-in">
-                    <div className="grid grid-cols-8 gap-2">
-                      {COLOR_OPTIONS.map(opt => (
-                        <button 
-                          key={opt.name}
-                          onClick={() => updateCategory(category.id, { color: opt.classes, dot: opt.dot })}
-                          className={`h-6 rounded-md ${opt.dot} ring-offset-2 transition-all ${category.dot === opt.dot ? 'ring-2 ring-indigo-400 scale-110' : ''}`}
-                        />
-                      ))}
-                    </div>
-                    <div className="grid grid-cols-10 gap-1">
-                      {ICON_OPTIONS.map(icon => (
-                        <button 
-                          key={icon}
-                          onClick={() => updateCategory(category.id, { icon })}
-                          className={`text-lg p-1 rounded-md transition-all ${category.icon === icon ? 'bg-indigo-100' : ''}`}
-                        >
-                          {icon}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-                )}
-                
-                {/* Items */}
-                <div className="p-4">
-                  <div className="relative mb-4">
-                    <input 
-                      placeholder="Add item..."
-                      className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') {
-                          addItem(e.target.value, category.id);
-                          e.target.value = '';
+                setFrequencyData(prev => {
+                    const key = cleanText.toLowerCase();
+                    const existing = prev[key] || { count: 0, lastCategory: categoryId };
+                    return {
+                        ...prev,
+                        [key]: {
+                            count: existing.count + 1,
+                            lastCategory: categoryId,
+                            originalText: cleanText
                         }
-                      }}
-                    />
-                    <Plus size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
-                  </div>
+                    };
+                });
 
-                  <div className="space-y-1">
-                    {categoryItems.length === 0 ? (
-                      <div className="py-8 flex flex-col items-center justify-center opacity-20 text-slate-400 italic">
-                        <LayoutGrid size={24} strokeWidth={1.5} />
-                        <p className="text-[10px] mt-1 font-bold tracking-widest uppercase">Empty Section</p>
-                      </div>
-                    ) : (
-                      categoryItems.map(item => (
-                        <div key={item.id} className={`group flex items-center gap-3 p-3 rounded-xl transition-all ${item.completed ? 'opacity-40' : 'hover:bg-slate-50'}`}>
-                          <button onClick={() => toggleItem(item.id)} className={item.completed ? 'text-indigo-600' : 'text-slate-200'}>
-                            {item.completed ? <CheckSquare size={22} /> : <Square size={22} />}
-                          </button>
-                          <span className={`flex-1 text-sm font-bold ${item.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-700'}`}>
-                            {item.text}
-                          </span>
-                          <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500">
-                            <Trash2 size={16} />
-                          </button>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        
-        <button 
-          onClick={() => setCategories([...categories, { id: `cat-${Date.now()}`, name: 'New Section', icon: '🛒', color: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500' }])}
-          className="w-full py-10 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:text-indigo-500 hover:border-indigo-200 transition-all group"
-        >
-          <Plus size={32} className="group-hover:scale-110 transition-transform" />
-          <span className="text-xs font-black uppercase tracking-widest mt-2">Add New Section</span>
-        </button>
-      </main>
+                setItems([{ 
+                    id: Date.now(), 
+                    text: cleanText, 
+                    category: categoryId, 
+                    completed: false 
+                }, ...items]);
+            };
 
-      {/* Favorites Panel */}
-      <div className={`fixed bottom-0 left-0 w-full z-50 transition-transform duration-300 ${showQuickAdd ? 'translate-y-0' : 'translate-y-[calc(100%-48px)]'}`}>
-        <div className="max-w-3xl mx-auto">
-          <button 
-            onClick={() => setShowQuickAdd(!showQuickAdd)}
-            className="mx-auto flex items-center gap-3 bg-slate-900 text-white px-8 py-3 rounded-t-[1.5rem] shadow-2xl"
-          >
-            <Zap size={14} className="text-amber-400 fill-amber-400" />
-            <span className="text-[10px] font-black tracking-widest">FAVORITES</span>
-            <ArrowDownUp size={12} className={`transition-transform ${showQuickAdd ? 'rotate-180' : ''}`} />
-          </button>
-          
-          <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200 p-6 h-36 flex gap-4 overflow-x-auto scrollbar-thin shadow-2xl rounded-t-[2.5rem]">
-            {frequentItems.length === 0 ? (
-              <div className="flex items-center justify-center w-full text-slate-300 text-[10px] font-black uppercase tracking-widest gap-2">
-                <History size={16} /> No items yet
-              </div>
-            ) : (
-              frequentItems.map(f => {
-                const cat = categories.find(c => c.id === f.lastCategory) || categories[0];
+            const toggleItem = (id) => setItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
+            const deleteItem = (id) => setItems(items.filter(i => i.id !== id));
+
+            const updateCategory = (id, updates) => {
+                setCategories(categories.map(cat => cat.id === id ? { ...cat, ...updates } : cat));
+            };
+
+            const onDragStartColumn = (e, index) => {
+                setDraggedColumnIndex(index);
+                e.dataTransfer.setData('type', 'column');
+                e.dataTransfer.setData('index', index);
+            };
+
+            const onDrop = (e, targetId, targetIndex) => {
+                e.preventDefault();
+                const type = e.dataTransfer.getData('type');
+                if (type === 'column' && draggedColumnIndex !== null) {
+                    const newCategories = [...categories];
+                    const [movedCol] = newCategories.splice(draggedColumnIndex, 1);
+                    newCategories.splice(targetIndex, 0, movedCol);
+                    setCategories(newCategories);
+                }
+                setDraggedColumnIndex(null);
+            };
+
+            if (!user) {
                 return (
-                  <button 
-                    key={f.text} 
-                    onClick={() => addItem(f.originalText, f.lastCategory)}
-                    className="flex-shrink-0 bg-white border border-slate-200 p-3 rounded-2xl min-w-[120px] flex flex-col justify-between hover:border-indigo-500 transition-all active:scale-95"
-                  >
-                    <div className="flex justify-between items-center">
-                      <span className="text-lg">{cat?.icon}</span>
-                      <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md">{f.count}</span>
+                    <div className="min-h-screen bg-slate-100 flex items-center justify-center p-6">
+                        <div className="bg-white w-full max-w-md rounded-[2.5rem] p-10 shadow-xl border border-slate-100 animate-in">
+                            <div className="flex flex-col items-center mb-8">
+                                <div className="w-16 h-16 bg-indigo-600 rounded-3xl flex items-center justify-center text-white mb-4 shadow-lg">
+                                    <Icon name="Lock" size={32} />
+                                </div>
+                                <h2 className="text-2xl font-black text-slate-800">SmartGrocer</h2>
+                                <p className="text-slate-400 font-bold text-xs uppercase tracking-widest mt-1">Sign in to continue</p>
+                            </div>
+                            <form onSubmit={handleLogin} className="space-y-4">
+                                <input 
+                                    type="text" 
+                                    placeholder="Username" 
+                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
+                                    value={credentials.username}
+                                    onChange={e => setCredentials({...credentials, username: e.target.value})}
+                                />
+                                <input 
+                                    type="password" 
+                                    placeholder="Password" 
+                                    className="w-full bg-slate-50 border-none rounded-2xl px-6 py-4 outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
+                                    value={credentials.password}
+                                    onChange={e => setCredentials({...credentials, password: e.target.value})}
+                                />
+                                {loginError && <p className="text-red-500 text-xs font-bold text-center">{loginError}</p>}
+                                <button className="w-full bg-indigo-600 text-white py-4 rounded-2xl font-black shadow-lg shadow-indigo-100 hover:bg-indigo-700 active:scale-95 transition-all">
+                                    Login
+                                </button>
+                                <p className="text-[10px] text-center text-slate-400 font-bold mt-4 uppercase tracking-tighter">Demo: admin / password123</p>
+                            </form>
+                        </div>
                     </div>
-                    <div className="text-xs font-bold text-slate-700 truncate text-left">{f.originalText}</div>
-                  </button>
                 );
-              })
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-};
+            }
 
-export default App;
+            return (
+                <div className="min-h-screen bg-[#f8fafc] text-slate-900 pb-40">
+                    <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
+                        <div className="max-w-3xl mx-auto flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <div className="w-9 h-9 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-md">
+                                    <Icon name="ShoppingBasket" size={20} />
+                                </div>
+                                <h1 className="text-lg font-black tracking-tight text-slate-800">SmartGrocer</h1>
+                            </div>
+                            <div className="flex items-center gap-4">
+                                <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{user.displayName}</span>
+                                <button onClick={handleLogout} className="p-2 text-slate-400 hover:text-red-500 transition-colors">
+                                    <Icon name="LogOut" size={18} />
+                                </button>
+                            </div>
+                        </div>
+                    </nav>
+
+                    <main className="max-w-3xl mx-auto p-4 space-y-6">
+                        {categories.map((category, index) => {
+                            const categoryItems = items.filter(item => item.category === category.id).sort((a, b) => a.completed - b.completed);
+                            const isEditing = editingCategory === category.id;
+
+                            return (
+                                <div 
+                                    key={category.id} 
+                                    onDragOver={e => e.preventDefault()} 
+                                    onDrop={e => onDrop(e, category.id, index)} 
+                                    className={`transition-all duration-300 ${draggedColumnIndex === index ? 'opacity-20 scale-95' : 'opacity-100'}`}
+                                >
+                                    <div className="bg-white rounded-[2rem] shadow-sm border border-slate-200 overflow-hidden">
+                                        <div className={`flex items-center justify-between p-5 border-b transition-all ${category.color}`}>
+                                            <div className="flex items-center gap-3 flex-1">
+                                                <div 
+                                                    draggable 
+                                                    onDragStart={(e) => onDragStartColumn(e, index)}
+                                                    className="cursor-grab active:cursor-grabbing text-slate-300 hover:text-slate-500"
+                                                >
+                                                    <Icon name="GripVertical" size={20} />
+                                                </div>
+                                                <span className="text-xl">{category.icon}</span>
+                                                <input 
+                                                    value={category.name}
+                                                    onChange={(e) => updateCategory(category.id, { name: e.target.value })}
+                                                    className="bg-transparent border-none outline-none font-black text-sm w-full focus:ring-1 focus:ring-black/5 rounded px-1"
+                                                />
+                                            </div>
+                                            <div className="flex items-center gap-2">
+                                                <span className="bg-white/50 px-2 py-0.5 rounded-lg text-[10px] font-black">
+                                                    {categoryItems.length}
+                                                </span>
+                                                <button 
+                                                    onClick={() => setEditingCategory(isEditing ? null : category.id)}
+                                                    className={`p-1 transition-colors ${isEditing ? 'text-indigo-600' : 'text-slate-400 hover:text-indigo-600'}`}
+                                                >
+                                                    <Icon name="Palette" size={16} />
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {isEditing && (
+                                            <div className="p-4 bg-slate-50 border-b space-y-4 animate-in">
+                                                <div className="grid grid-cols-8 gap-2">
+                                                    {COLOR_OPTIONS.map(opt => (
+                                                        <button 
+                                                            key={opt.name}
+                                                            onClick={() => updateCategory(category.id, { color: opt.classes, dot: opt.dot })}
+                                                            className={`h-6 rounded-md ${opt.dot} ring-offset-2 transition-all ${category.dot === opt.dot ? 'ring-2 ring-indigo-400 scale-110' : ''}`}
+                                                        />
+                                                    ))}
+                                                </div>
+                                                <div className="grid grid-cols-10 gap-1">
+                                                    {ICON_OPTIONS.map(icon => (
+                                                        <button 
+                                                            key={icon}
+                                                            onClick={() => updateCategory(category.id, { icon })}
+                                                            className={`text-lg p-1 rounded-md transition-all ${category.icon === icon ? 'bg-indigo-100' : ''}`}
+                                                        >
+                                                            {icon}
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                                <button 
+                                                    onClick={() => {
+                                                        if (categories.length > 1) {
+                                                            setCategories(categories.filter(c => c.id !== category.id));
+                                                            setItems(items.filter(i => i.category !== category.id));
+                                                        }
+                                                    }}
+                                                    className="w-full py-2 bg-red-50 text-red-600 rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-red-100 transition-colors"
+                                                >
+                                                    Delete Section
+                                                </button>
+                                            </div>
+                                        )}
+                                        
+                                        <div className="p-4">
+                                            <div className="relative mb-4">
+                                                <input 
+                                                    placeholder="Add item..."
+                                                    className="w-full bg-slate-50 border border-slate-100 rounded-xl px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-indigo-100 font-bold"
+                                                    onKeyDown={(e) => {
+                                                        if (e.key === 'Enter') {
+                                                            addItem(e.target.value, category.id);
+                                                            e.target.value = '';
+                                                        }
+                                                    }}
+                                                />
+                                                <Icon name="Plus" size={16} className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-300" />
+                                            </div>
+
+                                            <div className="space-y-1">
+                                                {categoryItems.length === 0 ? (
+                                                    <div className="py-8 flex flex-col items-center justify-center opacity-20 text-slate-400 italic">
+                                                        <Icon name="LayoutGrid" size={24} strokeWidth={1.5} />
+                                                        <p className="text-[10px] mt-1 font-bold tracking-widest uppercase">Empty Section</p>
+                                                    </div>
+                                                ) : (
+                                                    categoryItems.map(item => (
+                                                        <div key={item.id} className={`group flex items-center gap-3 p-3 rounded-xl transition-all ${item.completed ? 'opacity-40' : 'hover:bg-slate-50'}`}>
+                                                            <button onClick={() => toggleItem(item.id)} className={item.completed ? 'text-indigo-600' : 'text-slate-200'}>
+                                                                <Icon name={item.completed ? 'CheckSquare' : 'Square'} size={22} />
+                                                            </button>
+                                                            <span className={`flex-1 text-sm font-bold ${item.completed ? 'line-through text-slate-400 font-normal' : 'text-slate-700'}`}>
+                                                                {item.text}
+                                                            </span>
+                                                            <button onClick={() => deleteItem(item.id)} className="opacity-0 group-hover:opacity-100 text-slate-300 hover:text-red-500 transition-opacity">
+                                                                <Icon name="Trash2" size={16} />
+                                                            </button>
+                                                        </div>
+                                                    ))
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            );
+                        })}
+                        
+                        <button 
+                            onClick={() => setCategories([...categories, { id: `cat-${Date.now()}`, name: 'New Section', icon: '🛒', color: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500' }])}
+                            className="w-full py-10 border-2 border-dashed border-slate-200 rounded-[2.5rem] flex flex-col items-center justify-center text-slate-300 hover:text-indigo-500 hover:border-indigo-200 transition-all group"
+                        >
+                            <Icon name="Plus" size={32} className="group-hover:scale-110 transition-transform" />
+                            <span className="text-xs font-black uppercase tracking-widest mt-2">Add New Section</span>
+                        </button>
+                    </main>
+
+                    <div className={`fixed bottom-0 left-0 w-full z-50 transition-transform duration-300 ${showQuickAdd ? 'translate-y-0' : 'translate-y-[calc(100%-48px)]'}`}>
+                        <div className="max-w-3xl mx-auto">
+                            <button 
+                                onClick={() => setShowQuickAdd(!showQuickAdd)}
+                                className="mx-auto flex items-center gap-3 bg-slate-900 text-white px-8 py-3 rounded-t-[1.5rem] shadow-2xl hover:bg-slate-800 transition-colors"
+                            >
+                                <Icon name="Zap" size={14} className="text-amber-400 fill-amber-400" />
+                                <span className="text-[10px] font-black tracking-widest">FAVORITES</span>
+                                <Icon name="ArrowDownUp" size={12} className={`transition-transform ${showQuickAdd ? 'rotate-180' : ''}`} />
+                            </button>
+                            
+                            <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200 p-6 h-40 flex gap-4 overflow-x-auto scrollbar-thin shadow-2xl rounded-t-[2.5rem]">
+                                {frequentItems.length === 0 ? (
+                                    <div className="flex items-center justify-center w-full text-slate-300 text-[10px] font-black uppercase tracking-widest gap-2">
+                                        <Icon name="History" size={16} /> No items yet
+                                    </div>
+                                ) : (
+                                    frequentItems.map(f => {
+                                        const cat = categories.find(c => c.id === f.lastCategory) || categories[0];
+                                        return (
+                                            <button 
+                                                key={f.text} 
+                                                onClick={() => addItem(f.originalText, f.lastCategory)}
+                                                className="flex-shrink-0 bg-white border border-slate-200 p-3 rounded-2xl min-w-[120px] flex flex-col justify-between hover:border-indigo-500 transition-all active:scale-95 shadow-sm"
+                                            >
+                                                <div className="flex justify-between items-center">
+                                                    <span className="text-lg">{cat?.icon || '📦'}</span>
+                                                    <span className="text-[10px] font-black bg-indigo-50 text-indigo-600 px-1.5 py-0.5 rounded-md">{f.count}</span>
+                                                </div>
+                                                <div className="text-xs font-bold text-slate-700 truncate text-left">{f.originalText}</div>
+                                            </button>
+                                        );
+                                    })
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
