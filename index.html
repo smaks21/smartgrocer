@@ -3,11 +3,17 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SmartGrocer - Shopping List</title>
+    <title>SmartGrocer - Cloud Shopping List</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Firebase SDK Compat (Standard Scripts to avoid module/babel conflicts) -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore-compat.js"></script>
+
     <style>
         .scrollbar-thin::-webkit-scrollbar { width: 4px; height: 4px; }
         .scrollbar-thin::-webkit-scrollbar-track { background: transparent; }
@@ -22,6 +28,18 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo } = React;
 
+        // --- Firebase Initialization ---
+        const firebaseConfig = JSON.parse(__firebase_config);
+        
+        // Ensure we only initialize once
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'smart-grocer-v1';
+
         // Inline SVG Icons
         const Icon = ({ name, size = 20, className = "" }) => {
             const icons = {
@@ -30,21 +48,14 @@
                 ShoppingBasket: <path d="m5 11 4-7M19 11l-4-7M2 11h20M3.5 11l1.6 7.4c.2.9 1 1.6 2 1.6h9.8c1 0 1.8-.7 2-1.6l1.7-7.4M9 11v.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V11M15 11v.5c0 .8.7 1.5 1.5 1.5s1.5-.7 1.5-1.5V11" />,
                 CheckSquare: <path d="m9 11 3 3L22 4M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />,
                 Square: <rect width="18" height="18" x="3" y="3" rx="2" />,
-                GripVertical: (
-                    <React.Fragment>
-                        <circle cx="9" cy="5" r="1"/><circle cx="9" cy="12" r="1"/><circle cx="9" cy="19" r="1"/>
-                        <circle cx="15" cy="5" r="1"/><circle cx="15" cy="12" r="1"/><circle cx="15" cy="19" r="1"/>
-                    </React.Fragment>
-                ),
                 Zap: <path d="M13 2 L3 14h9l-1 8 10-12h-9l1-8z" />,
                 X: <path d="M18 6 6 18M6 6l12 12" />,
                 ArrowDownUp: <path d="m3 16 4 4 4-4M7 20V4M21 8l-4-4-4 4M17 4v16" />,
                 History: <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8M3 3v5h5M12 7v5l4 2" />,
                 LayoutGrid: <path d="M3 3h7v7H3zM14 3h7v7h-7zM14 14h7v7h-7zM3 14h7v7H3z" />,
                 Palette: <path d="M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16zM12 14a2 2 0 1 0 0-4 2 2 0 0 0 0 4z" />,
-                Settings: <path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z" />
+                User: <path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2M12 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8z" />
             };
-
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
                     {icons[name] || <circle cx="12" cy="12" r="10" />}
@@ -73,47 +84,114 @@
         ];
 
         const App = () => {
-            const [items, setItems] = useState(() => JSON.parse(localStorage.getItem('groceries-items') || '[]'));
-            const [categories, setCategories] = useState(() => JSON.parse(localStorage.getItem('groceries-cats') || JSON.stringify(INITIAL_CATEGORIES)));
-            const [freq, setFreq] = useState(() => JSON.parse(localStorage.getItem('groceries-freq') || '{}'));
+            const [user, setUser] = useState(null);
+            const [items, setItems] = useState([]);
+            const [categories, setCategories] = useState(INITIAL_CATEGORIES);
+            const [freq, setFreq] = useState({});
             const [showQuickAdd, setShowQuickAdd] = useState(true);
             const [draggedColIdx, setDraggedColIdx] = useState(null);
             const [editingCatId, setEditingCatId] = useState(null);
+            const [loading, setLoading] = useState(true);
 
-            useEffect(() => localStorage.setItem('groceries-items', JSON.stringify(items)), [items]);
-            useEffect(() => localStorage.setItem('groceries-cats', JSON.stringify(categories)), [categories]);
-            useEffect(() => localStorage.setItem('groceries-freq', JSON.stringify(freq)), [freq]);
+            // Auth Effect
+            useEffect(() => {
+                const initAuth = async () => {
+                    try {
+                        if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                            await auth.signInWithCustomToken(__initial_auth_token);
+                        } else {
+                            await auth.signInAnonymously();
+                        }
+                    } catch (e) { console.error("Auth Error", e); }
+                };
+                initAuth();
+                const unsubscribe = auth.onAuthStateChanged((u) => {
+                    setUser(u);
+                    if (!u) setLoading(false);
+                });
+                return () => unsubscribe();
+            }, []);
+
+            // Firestore Data Sync Effect
+            useEffect(() => {
+                if (!user) return;
+                
+                // Path strictly follows mandatory RULE 1
+                const userDocRef = db.doc(`artifacts/${appId}/users/${user.uid}/userData/main`);
+                
+                const unsubscribe = userDocRef.onSnapshot((snapshot) => {
+                    if (snapshot.exists) {
+                        const data = snapshot.data();
+                        setItems(data.items || []);
+                        setCategories(data.categories || INITIAL_CATEGORIES);
+                        setFreq(data.freq || {});
+                    } else {
+                        userDocRef.set({ items: [], categories: INITIAL_CATEGORIES, freq: {} });
+                    }
+                    setLoading(false);
+                }, (err) => {
+                    console.error("Firestore Error", err);
+                    setLoading(false);
+                });
+
+                return () => unsubscribe();
+            }, [user]);
+
+            const updateFirestore = async (newData) => {
+                if (!user) return;
+                const userDocRef = db.doc(`artifacts/${appId}/users/${user.uid}/userData/main`);
+                try {
+                    await userDocRef.update(newData);
+                } catch (e) {
+                    console.error("Update failed", e);
+                }
+            };
 
             const frequentItems = useMemo(() => 
                 Object.entries(freq).map(([text, d]) => ({ text, ...d })).sort((a,b) => b.count - a.count).slice(0, 10)
             , [freq]);
 
             const addItem = (text, catId) => {
-                if (!text.trim()) return;
+                if (!text.trim() || !user) return;
                 const clean = text.trim();
-                setFreq(prev => ({
-                    ...prev,
-                    [clean.toLowerCase()]: { count: (prev[clean.toLowerCase()]?.count || 0) + 1, lastCat: catId, label: clean }
-                }));
-                setItems([{ id: Date.now(), text: clean, category: catId, completed: false }, ...items]);
+                const newItem = { id: Date.now(), text: clean, category: catId, completed: false };
+                
+                const newFreq = { ...freq };
+                const key = clean.toLowerCase();
+                newFreq[key] = { count: (newFreq[key]?.count || 0) + 1, lastCat: catId, label: clean };
+
+                updateFirestore({
+                    items: [newItem, ...items],
+                    freq: newFreq
+                });
             };
 
-            const toggleItem = (id) => setItems(items.map(i => i.id === id ? {...i, completed: !i.completed} : i));
-            const deleteItem = (id) => setItems(items.filter(i => i.id !== id));
+            const toggleItem = (id) => {
+                const newItems = items.map(i => i.id === id ? {...i, completed: !i.completed} : i);
+                updateFirestore({ items: newItems });
+            };
+
+            const deleteItem = (id) => {
+                const newItems = items.filter(i => i.id !== id);
+                updateFirestore({ items: newItems });
+            };
             
             const addColumn = () => {
                 const newId = `cat-${Date.now()}`;
-                setCategories([...categories, { id: newId, name: 'New Section', icon: '🛒', color: 'bg-slate-100 text-slate-700 border-slate-200' }]);
+                const newCats = [...categories, { id: newId, name: 'New Section', icon: '🛒', color: 'bg-slate-100 text-slate-700 border-slate-200' }];
+                updateFirestore({ categories: newCats });
             };
 
             const deleteColumn = (id) => {
                 if (categories.length <= 1) return;
-                setCategories(categories.filter(c => c.id !== id));
-                setItems(items.filter(i => i.category !== id));
+                const newCats = categories.filter(c => c.id !== id);
+                const newItems = items.filter(i => i.category !== id);
+                updateFirestore({ categories: newCats, items: newItems });
             };
 
             const updateCategory = (id, updates) => {
-                setCategories(categories.map(c => c.id === id ? { ...c, ...updates } : c));
+                const newCats = categories.map(c => c.id === id ? { ...c, ...updates } : c);
+                updateFirestore({ categories: newCats });
             };
 
             const onDragStartCol = (e, index) => {
@@ -129,9 +207,20 @@
                 const newCats = [...categories];
                 const [moved] = newCats.splice(sourceIdx, 1);
                 newCats.splice(targetIdx, 0, moved);
-                setCategories(newCats);
+                updateFirestore({ categories: newCats });
                 setDraggedColIdx(null);
             };
+
+            if (loading) {
+                return (
+                    <div className="min-h-screen flex items-center justify-center bg-slate-50">
+                        <div className="flex flex-col items-center gap-4">
+                            <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+                            <p className="text-slate-400 font-bold text-xs uppercase tracking-widest">Accessing Secure Vault...</p>
+                        </div>
+                    </div>
+                );
+            }
 
             return (
                 <div className="min-h-screen pb-40">
@@ -143,16 +232,26 @@
                                 </div>
                                 <div>
                                     <h1 className="font-bold text-lg leading-none">SmartGrocer</h1>
-                                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Master List</span>
+                                    <div className="flex items-center gap-2">
+                                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-widest">Cloud Sync</span>
+                                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                    </div>
                                 </div>
                             </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={addColumn} className="text-sm font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-colors flex items-center gap-2">
-                                    <Icon name="Plus" size={16} /> Add Column
-                                </button>
-                                <button onClick={() => setItems(items.filter(i => !i.completed))} className="text-sm font-bold text-slate-500 hover:text-red-600 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors flex items-center gap-2">
-                                    <Icon name="Trash2" size={16} /> Clear
-                                </button>
+                            
+                            <div className="flex items-center gap-4">
+                                <div className="hidden md:flex flex-col items-end border-r pr-4 border-slate-100">
+                                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-tighter">Current User</span>
+                                    <span className="text-xs font-mono text-slate-600">{user?.uid}</span>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={addColumn} className="text-sm font-bold text-indigo-600 bg-indigo-50 px-4 py-2 rounded-xl border border-indigo-100 hover:bg-indigo-100 transition-colors flex items-center gap-2">
+                                        <Icon name="Plus" size={16} /> Add Column
+                                    </button>
+                                    <button onClick={() => updateFirestore({ items: items.filter(i => !i.completed) })} className="text-sm font-bold text-slate-500 hover:text-red-600 px-4 py-2 rounded-xl hover:bg-red-50 transition-colors flex items-center gap-2">
+                                        <Icon name="Trash2" size={16} /> Clear
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </nav>
@@ -218,10 +317,10 @@
                                                 className="w-full text-sm py-2 outline-none"
                                                 onKeyDown={(e) => { 
                                                     if(e.key === 'Enter') { 
-                                                        e.preventDefault(); // Prevents focus from moving to next input
+                                                        e.preventDefault();
                                                         addItem(e.target.value, cat.id); 
                                                         e.target.value = ''; 
-                                                        e.target.blur(); // Dismisses keyboard on mobile to prevent jumping
+                                                        e.target.blur();
                                                     }
                                                 }}
                                             />
