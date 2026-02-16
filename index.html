@@ -216,7 +216,14 @@
                                             <input 
                                                 placeholder="Add item..." 
                                                 className="w-full text-sm py-2 outline-none"
-                                                onKeyDown={(e) => { if(e.key === 'Enter') { addItem(e.target.value, cat.id); e.target.value = ''; }}}
+                                                onKeyDown={(e) => { 
+                                                    if(e.key === 'Enter') { 
+                                                        e.preventDefault(); // Prevents focus from moving to next input
+                                                        addItem(e.target.value, cat.id); 
+                                                        e.target.value = ''; 
+                                                        e.target.blur(); // Dismisses keyboard on mobile to prevent jumping
+                                                    }
+                                                }}
                                             />
                                         </div>
                                     </div>
