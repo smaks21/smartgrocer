@@ -1,0 +1,428 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { 
+  Plus, 
+  Trash2, 
+  ShoppingBasket, 
+  Square,
+  CheckSquare,
+  GripVertical,
+  LayoutGrid,
+  X,
+  Palette,
+  Smile,
+  ArrowDownUp,
+  History,
+  Zap
+} from 'lucide-react';
+
+const INITIAL_CATEGORIES = [
+  { id: 'fruit-veg', name: 'Fruit & Veg', icon: '🍎', color: 'bg-emerald-50 text-emerald-700 border-emerald-100', dot: 'bg-emerald-500' },
+  { id: 'food-cupboard', name: 'Food Cupboard', icon: '🥫', color: 'bg-amber-50 text-amber-700 border-amber-100', dot: 'bg-amber-500' },
+  { id: 'chilled', name: 'Chilled', icon: '🧊', color: 'bg-sky-50 text-sky-700 border-sky-100', dot: 'bg-sky-500' },
+  { id: 'frozen', name: 'Frozen', icon: '❄️', color: 'bg-indigo-50 text-indigo-700 border-indigo-100', dot: 'bg-indigo-500' },
+  { id: 'bakery', name: 'Bakery', icon: '🥐', color: 'bg-orange-50 text-orange-700 border-orange-100', dot: 'bg-orange-500' },
+  { id: 'other', name: 'Other', icon: '📦', color: 'bg-slate-100 text-slate-700 border-slate-200', dot: 'bg-slate-500' }
+];
+
+const ICON_OPTIONS = ['🍎', '🥦', '🥫', '🥛', '🧊', '❄️', '🥐', '🥩', '🧼', '📦', '🍫', '🥤', '🐶', '🧴', '🥚', '🍕', '🧹', '🔋', '🍷', '🥖'];
+const COLOR_OPTIONS = [
+  { name: 'Emerald', dot: 'bg-emerald-500', classes: 'bg-emerald-50 text-emerald-700 border-emerald-100' },
+  { name: 'Amber', dot: 'bg-amber-500', classes: 'bg-amber-50 text-amber-700 border-amber-100' },
+  { name: 'Sky', dot: 'bg-sky-500', classes: 'bg-sky-50 text-sky-700 border-sky-100' },
+  { name: 'Indigo', dot: 'bg-indigo-500', classes: 'bg-indigo-50 text-indigo-700 border-indigo-100' },
+  { name: 'Orange', dot: 'bg-orange-500', classes: 'bg-orange-50 text-orange-700 border-orange-100' },
+  { name: 'Rose', dot: 'bg-rose-500', classes: 'bg-rose-50 text-rose-700 border-rose-100' },
+  { name: 'Violet', dot: 'bg-violet-500', classes: 'bg-violet-50 text-violet-700 border-violet-100' },
+  { name: 'Slate', dot: 'bg-slate-500', classes: 'bg-slate-100 text-slate-700 border-slate-200' },
+];
+
+const App = () => {
+  const [items, setItems] = useState(() => {
+    const saved = localStorage.getItem('modern-groceries-v2');
+    return saved ? JSON.parse(saved) : [];
+  });
+
+  const [categories, setCategories] = useState(() => {
+    const savedCats = localStorage.getItem('modern-groceries-categories-v3');
+    return savedCats ? JSON.parse(savedCats) : INITIAL_CATEGORIES;
+  });
+
+  // Track frequency of item names + their last category
+  const [frequencyData, setFrequencyData] = useState(() => {
+    const saved = localStorage.getItem('modern-groceries-freq');
+    return saved ? JSON.parse(saved) : {};
+  });
+  
+  const [activeInput, setActiveInput] = useState(null); 
+  const [editingCategory, setEditingCategory] = useState(null);
+  const [editCategoryName, setEditCategoryName] = useState('');
+  const [draggedItem, setDraggedItem] = useState(null);
+  const [draggedColumnIndex, setDraggedColumnIndex] = useState(null);
+  const [showQuickAdd, setShowQuickAdd] = useState(true);
+
+  useEffect(() => {
+    localStorage.setItem('modern-groceries-v2', JSON.stringify(items));
+  }, [items]);
+
+  useEffect(() => {
+    localStorage.setItem('modern-groceries-categories-v3', JSON.stringify(categories));
+  }, [categories]);
+
+  useEffect(() => {
+    localStorage.setItem('modern-groceries-freq', JSON.stringify(frequencyData));
+  }, [frequencyData]);
+
+  // Derived frequent items list (sorted by count)
+  const frequentItems = useMemo(() => {
+    return Object.entries(frequencyData)
+      .map(([text, data]) => ({ text, ...data }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 12);
+  }, [frequencyData]);
+
+  const addItem = (text, categoryId) => {
+    const cleanText = text.trim();
+    if (!cleanText) return;
+
+    // Record frequency
+    setFrequencyData(prev => {
+      const existing = prev[cleanText.toLowerCase()] || { count: 0, lastCategory: categoryId };
+      return {
+        ...prev,
+        [cleanText.toLowerCase()]: {
+          count: existing.count + 1,
+          lastCategory: categoryId,
+          originalText: cleanText // preserve casing for display
+        }
+      };
+    });
+
+    setItems([{ 
+      id: Date.now(), 
+      text: cleanText, 
+      category: categoryId, 
+      completed: false, 
+      createdAt: new Date().toISOString() 
+    }, ...items]);
+  };
+
+  const toggleItem = (id) => setItems(items.map(i => i.id === id ? { ...i, completed: !i.completed } : i));
+  const deleteItem = (id) => setItems(items.filter(i => i.id !== id));
+  const clearCompleted = () => setItems(items.filter(i => !i.completed));
+
+  const addCategory = () => {
+    const newId = `cat-${Date.now()}`;
+    const newCat = {
+      id: newId,
+      name: 'New Category',
+      icon: '🛒',
+      color: 'bg-slate-100 text-slate-700 border-slate-200',
+      dot: 'bg-slate-500'
+    };
+    setCategories([...categories, newCat]);
+    setEditingCategory(newId);
+    setEditCategoryName('New Category');
+  };
+
+  const deleteCategory = (id) => {
+    if (categories.length <= 1) return;
+    setCategories(categories.filter(c => c.id !== id));
+    setItems(items.filter(i => i.category !== id));
+    setEditingCategory(null);
+  };
+
+  const startEditingCategory = (category) => {
+    setEditingCategory(category.id);
+    setEditCategoryName(category.name);
+  };
+
+  const updateCategory = (id, updates) => {
+    setCategories(categories.map(cat => cat.id === id ? { ...cat, ...updates } : cat));
+  };
+
+  const onDragStartItem = (e, item) => {
+    setDraggedItem(item);
+    e.dataTransfer.setData('type', 'item');
+    e.dataTransfer.setData('id', item.id);
+    e.stopPropagation();
+  };
+
+  const onDragStartFrequent = (e, freqObj) => {
+    // Treat as a "new" item but pass the text
+    e.dataTransfer.setData('type', 'frequent');
+    e.dataTransfer.setData('text', freqObj.originalText);
+    e.stopPropagation();
+  };
+
+  const onDragStartColumn = (e, index) => {
+    setDraggedColumnIndex(index);
+    e.dataTransfer.setData('type', 'column');
+    e.dataTransfer.setData('index', index);
+  };
+
+  const onDrop = (e, targetId, targetIndex) => {
+    e.preventDefault();
+    const type = e.dataTransfer.getData('type');
+
+    if (type === 'item' && draggedItem) {
+      setItems(items.map(item => item.id === draggedItem.id ? { ...item, category: targetId } : item));
+    } else if (type === 'column' && draggedColumnIndex !== null) {
+      const newCategories = [...categories];
+      const [movedCol] = newCategories.splice(draggedColumnIndex, 1);
+      newCategories.splice(targetIndex, 0, movedCol);
+      setCategories(newCategories);
+    } else if (type === 'frequent') {
+      const text = e.dataTransfer.getData('text');
+      addItem(text, targetId);
+    }
+    
+    setDraggedItem(null);
+    setDraggedColumnIndex(null);
+  };
+
+  return (
+    <div className="min-h-screen bg-[#f1f5f9] text-slate-900 font-sans selection:bg-indigo-100 pb-32">
+      <nav className="sticky top-0 z-30 bg-white/80 backdrop-blur-md border-b border-slate-200 px-6 py-4">
+        <div className="max-w-[1800px] mx-auto flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center text-white shadow-lg shadow-indigo-200">
+              <ShoppingBasket size={24} />
+            </div>
+            <div>
+              <h1 className="text-xl font-bold tracking-tight text-slate-800">SmartGrocer</h1>
+              <p className="text-xs text-slate-500 font-medium uppercase tracking-wider">Shopping List</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <button 
+              onClick={addCategory}
+              className="text-sm font-semibold text-indigo-600 hover:text-indigo-700 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl bg-indigo-50 border border-indigo-100"
+            >
+              <Plus size={16} />
+              Add Column
+            </button>
+            <button 
+              onClick={clearCompleted}
+              className="text-sm font-semibold text-slate-500 hover:text-red-600 transition-colors flex items-center gap-2 px-4 py-2 rounded-xl hover:bg-red-50 border border-transparent hover:border-red-100"
+            >
+              <Trash2 size={16} />
+              Clear Completed
+            </button>
+          </div>
+        </div>
+      </nav>
+
+      <main className="max-w-[1800px] mx-auto p-6">
+        <div className="flex flex-wrap gap-6 items-start justify-center md:justify-start">
+          {categories.map((category, index) => {
+            const categoryItems = items.filter(item => item.category === category.id).sort((a, b) => a.completed - b.completed);
+            const isEditing = editingCategory === category.id;
+
+            return (
+              <div 
+                key={category.id} 
+                draggable={!isEditing}
+                onDragStart={(e) => onDragStartColumn(e, index)}
+                onDragOver={e => e.preventDefault()} 
+                onDrop={e => onDrop(e, category.id, index)} 
+                className={`flex flex-col relative w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] xl:w-[calc(16.66%-20px)] min-w-[300px] transition-opacity ${draggedColumnIndex === index ? 'opacity-40' : 'opacity-100'}`}
+              >
+                
+                {/* Customization Popover */}
+                {isEditing && (
+                  <div className="absolute top-0 left-0 w-full z-40 bg-white rounded-2xl shadow-2xl border border-slate-200 p-4 animate-in fade-in zoom-in duration-200">
+                    <div className="flex justify-between items-center mb-4">
+                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Customize Column</span>
+                      <button onClick={() => setEditingCategory(null)} className="text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                    </div>
+                    
+                    <input
+                      autoFocus
+                      type="text"
+                      value={editCategoryName}
+                      onChange={(e) => setEditCategoryName(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && (updateCategory(category.id, { name: editCategoryName }), setEditingCategory(null))}
+                      className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-bold mb-4 focus:ring-2 focus:ring-indigo-100 outline-none"
+                    />
+
+                    <div className="space-y-4">
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1"><Palette size={10} /> Theme</p>
+                        <div className="grid grid-cols-4 gap-2">
+                          {COLOR_OPTIONS.map(opt => (
+                            <button 
+                              key={opt.name}
+                              onClick={() => updateCategory(category.id, { color: opt.classes, dot: opt.dot })}
+                              className={`h-6 rounded-md ${opt.dot} ring-offset-2 transition-all ${category.dot === opt.dot ? 'ring-2 ring-indigo-400 scale-110' : 'hover:scale-105'}`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div>
+                        <p className="text-[10px] font-bold text-slate-400 uppercase mb-2 flex items-center gap-1"><Smile size={10} /> Icon</p>
+                        <div className="grid grid-cols-5 gap-1">
+                          {ICON_OPTIONS.map(icon => (
+                            <button 
+                              key={icon}
+                              onClick={() => updateCategory(category.id, { icon })}
+                              className={`text-lg p-1 rounded-md transition-all ${category.icon === icon ? 'bg-indigo-50 scale-125' : 'hover:bg-slate-50'}`}
+                            >
+                              {icon}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="flex gap-2 mt-6">
+                      <button 
+                        onClick={() => deleteCategory(category.id)}
+                        className="flex-1 bg-red-50 text-red-600 text-xs font-bold py-2 rounded-lg hover:bg-red-100 transition-colors flex items-center justify-center gap-2"
+                      >
+                        <Trash2 size={14} /> Delete
+                      </button>
+                      <button 
+                        onClick={() => (updateCategory(category.id, { name: editCategoryName }), setEditingCategory(null))}
+                        className="flex-[2] bg-indigo-600 text-white text-xs font-bold py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                      >
+                        Save
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* Column Header */}
+                <div className={`flex items-center justify-between p-4 rounded-t-2xl border-x border-t transition-all cursor-grab active:cursor-grabbing ${category.color}`}>
+                  <div className="flex items-center gap-2 overflow-hidden flex-1 mr-2 group" onClick={() => startEditingCategory(category)}>
+                    <span className="text-xl flex-shrink-0 group-hover:scale-110 transition-transform">{category.icon}</span>
+                    <h2 className="font-bold text-xs uppercase tracking-widest truncate decoration-dotted hover:underline cursor-pointer">
+                      {category.name}
+                    </h2>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="bg-white/40 px-2 py-0.5 rounded-lg text-[10px] font-black flex-shrink-0">
+                      {categoryItems.length}
+                    </span>
+                    <GripVertical size={14} className="opacity-30" />
+                  </div>
+                </div>
+                
+                {/* Column Content */}
+                <div className="flex-1 bg-white border border-slate-200 rounded-b-2xl shadow-sm overflow-hidden flex flex-col">
+                  <div className="p-2 border-b border-slate-50 bg-slate-50/30">
+                    {activeInput === category.id ? (
+                      <form 
+                        onSubmit={(e) => { e.preventDefault(); addItem(e.target.itemText.value, category.id); e.target.reset(); }}
+                        className="flex items-center gap-1"
+                      >
+                        <input autoFocus name="itemText" type="text" placeholder="Type item..." onBlur={(e) => !e.target.value && setActiveInput(null)} className="w-full bg-white border border-indigo-200 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-indigo-100 outline-none shadow-inner" />
+                        <button type="button" onClick={() => setActiveInput(null)} className="p-2 text-slate-400 hover:text-slate-600"><X size={16} /></button>
+                      </form>
+                    ) : (
+                      <button onClick={() => setActiveInput(category.id)} className="w-full flex items-center justify-center gap-2 py-2 text-xs font-bold text-slate-400 hover:text-indigo-600 hover:bg-white rounded-lg transition-all border border-dashed border-slate-200 hover:border-indigo-200">
+                        <Plus size={14} /> ADD ITEM
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="p-3 space-y-2.5 max-h-[500px] overflow-y-auto scrollbar-thin scrollbar-thumb-slate-200">
+                    {categoryItems.length === 0 && activeInput !== category.id ? (
+                      <div className="py-12 flex flex-col items-center justify-center opacity-20 text-slate-400 italic">
+                        <LayoutGrid size={24} strokeWidth={1.5} />
+                        <p className="text-[10px] mt-1 font-medium tracking-widest uppercase">Empty</p>
+                      </div>
+                    ) : (
+                      categoryItems.map(item => (
+                        <div 
+                          key={item.id} draggable onDragStart={(e) => onDragStartItem(e, item)}
+                          className={`group flex items-start gap-3 p-3 rounded-xl border transition-all duration-200 cursor-grab active:cursor-grabbing ${item.completed ? 'bg-slate-50 border-slate-100 opacity-60' : 'bg-white border-slate-200 hover:border-indigo-100 hover:shadow-sm'}`}
+                        >
+                          <button onClick={(e) => { e.stopPropagation(); toggleItem(item.id); }} className={`mt-0.5 flex-shrink-0 transition-colors ${item.completed ? 'text-indigo-600' : 'text-slate-300 hover:text-indigo-500'}`}>
+                            {item.completed ? <CheckSquare size={20} fill="currentColor" className="text-white fill-indigo-600" strokeWidth={1.5} /> : <Square size={20} strokeWidth={1.5} />}
+                          </button>
+                          <p className={`flex-1 text-sm font-medium leading-tight break-words ${item.completed ? 'line-through text-slate-400' : 'text-slate-700'}`}>{item.text}</p>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                            <button onClick={(e) => { e.stopPropagation(); deleteItem(item.id); }} className="text-slate-300 hover:text-red-500 p-0.5"><Trash2 size={14} /></button>
+                            <div className="text-slate-200"><GripVertical size={14} /></div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          
+          <button 
+            onClick={addCategory}
+            className="flex flex-col items-center justify-center w-full sm:w-[calc(50%-12px)] lg:w-[calc(33.33%-16px)] xl:w-[calc(16.66%-20px)] min-w-[300px] h-[150px] rounded-2xl border-2 border-dashed border-slate-200 text-slate-400 hover:text-indigo-500 hover:border-indigo-200 hover:bg-white transition-all group"
+          >
+            <Plus size={32} className="group-hover:scale-110 transition-transform" />
+            <span className="text-xs font-bold uppercase tracking-widest mt-2">New Column</span>
+          </button>
+        </div>
+      </main>
+
+      {/* Quick Add Panel */}
+      <div className={`fixed bottom-0 left-0 w-full z-50 transition-transform duration-300 ease-in-out ${showQuickAdd ? 'translate-y-0' : 'translate-y-[calc(100%-48px)]'}`}>
+        <div className="max-w-[1200px] mx-auto">
+          {/* Panel Toggle Handle */}
+          <div className="flex justify-center">
+            <button 
+              onClick={() => setShowQuickAdd(!showQuickAdd)}
+              className="bg-slate-800 text-white px-6 py-2 rounded-t-2xl flex items-center gap-2 shadow-2xl transition-colors hover:bg-slate-700"
+            >
+              <Zap size={14} className="text-amber-400 fill-amber-400" />
+              <span className="text-[10px] font-black uppercase tracking-widest">Quick Add Favorites</span>
+              <ArrowDownUp size={12} className={`transition-transform ${showQuickAdd ? 'rotate-180' : ''}`} />
+            </button>
+          </div>
+
+          <div className="bg-white/95 backdrop-blur-xl border-t border-slate-200 shadow-[0_-20px_50px_-12px_rgba(0,0,0,0.1)] p-6 h-36">
+            {frequentItems.length === 0 ? (
+              <div className="flex items-center justify-center h-full gap-3 text-slate-400">
+                <History size={20} strokeWidth={1.5} />
+                <p className="text-xs font-medium uppercase tracking-widest">Commonly used items will appear here</p>
+              </div>
+            ) : (
+              <div className="flex gap-4 overflow-x-auto pb-4 scrollbar-thin scrollbar-thumb-slate-200">
+                {frequentItems.map((freq) => {
+                  const lastCat = categories.find(c => c.id === freq.lastCategory) || categories[0];
+                  return (
+                    <button
+                      key={freq.text}
+                      draggable
+                      onDragStart={(e) => onDragStartFrequent(e, freq)}
+                      onClick={() => addItem(freq.originalText, freq.lastCategory)}
+                      className="flex-shrink-0 group flex flex-col items-center gap-2 bg-white border border-slate-200 rounded-2xl p-3 min-w-[100px] hover:border-indigo-400 hover:shadow-md transition-all active:scale-95 cursor-grab"
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span className="text-lg">{lastCat?.icon || '📦'}</span>
+                        <div className="bg-slate-100 text-[10px] font-black px-1.5 py-0.5 rounded-md text-slate-500 group-hover:bg-indigo-600 group-hover:text-white">
+                          {freq.count}
+                        </div>
+                      </div>
+                      <span className="text-xs font-bold text-slate-700 truncate w-24 text-center">
+                        {freq.originalText}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      <footer className="fixed bottom-0 left-0 w-full bg-white/60 backdrop-blur-md border-t border-slate-200 px-6 py-3 flex justify-center z-20 pointer-events-none">
+        <p className="text-[10px] text-slate-400 font-bold uppercase tracking-[0.2em] flex items-center gap-4">
+          <span className="flex items-center gap-1">Tap favorite to auto-add</span>
+          <span className="w-1 h-1 bg-slate-300 rounded-full"></span>
+          <span>Drag favorites to specific columns</span>
+        </p>
+      </footer>
+    </div>
+  );
+};
+
+export default App;
